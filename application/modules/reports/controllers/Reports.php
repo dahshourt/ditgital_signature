@@ -1,7 +1,12 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
 /**
- * 
+ * Reports Controller
+ *
+ * All date/time operations use DateTimeZone('Africa/Cairo') explicitly
+ * to ensure correct DST (Daylight Saving Time) handling for Egypt.
+ * Egypt observes DST (UTC+3 in summer, UTC+2 in winter).
+ * Never use raw fixed offsets — always use the named timezone.
  */
 class Reports extends MY_Controller {
 	
@@ -13,7 +18,6 @@ class Reports extends MY_Controller {
 		$this->load->model('Reports_model');
 		$this->load->model('tickets/Ticket_model');
 		$this->lang->load('tickets/tickets');
-		
 	}
 	
 	// Number Of Transfered Tickets
@@ -21,9 +25,7 @@ class Reports extends MY_Controller {
 		$data['main_content'] = 'welcome/welcome_message';
  		$data['title']        = 'Number of transferred report';
  		$this->load->view('layouts/default',$data);
-		//echo "This is home page";
 	}
-
 
 	// Tickets per statuses
 	public function tickets_report() {
@@ -32,8 +34,17 @@ class Reports extends MY_Controller {
 		$this->form_validation->set_rules('created_to','Creation date (To)','required');
 		if($this->form_validation->run())
 		{
-			$created_from = strtotime($this->input->post('created_from'));
-			$created_to   = strtotime($this->input->post('created_to'));
+			// Use DateTimeZone('Africa/Cairo') to correctly handle DST.
+			// strtotime() alone uses the server TZ which may be a fixed offset
+			// and would NOT automatically adjust for DST transitions.
+			$tz = new DateTimeZone('Africa/Cairo');
+
+			$dt_from = new DateTime($this->input->post('created_from'), $tz);
+			$created_from = $dt_from->getTimestamp();
+
+			$dt_to = new DateTime($this->input->post('created_to'), $tz);
+			$created_to = $dt_to->getTimestamp();
+
 			$data_search = array('created_from' => $created_from, 'created_to' => $created_to);
 			
 			if ($this->input->post('area_code_id'))
@@ -54,7 +65,6 @@ class Reports extends MY_Controller {
 			$data['search_tickets'] = $ticket_by_search_res->result();
 			$this->session->set_userdata('search_tickets_export', $this->db->last_query());
 			$data['search_tickets_export'] = $ticket_by_search_res;
-
 		}
 		
 		$data['created_from'] = array(
@@ -102,7 +112,6 @@ class Reports extends MY_Controller {
  		$data['title']        = 'Tickets Reports - Trouble ticketing System';
  		
  		$this->load->view('layouts/default',$data);
-	
 	}
 
 	public function export_csv()
@@ -121,7 +130,10 @@ class Reports extends MY_Controller {
 		//force download from server
 		$this->load->helper('download');
 		$data = file_get_contents($this->file_path . '/csv_file.csv');
-		$name = 'Tickets-'.date('d-m-Y').'.csv';
+
+		// Use DateTime with Africa/Cairo timezone to get DST-correct date for filename.
+		$now = new DateTime('now', new DateTimeZone('Africa/Cairo'));
+		$name = 'Tickets-' . $now->format('d-m-Y') . '.csv';
 		force_download($name, $data);
 	} 
 }

@@ -1,26 +1,42 @@
+/**
+ * calender_from_to.js
+ *
+ * DST FIX: The datetimepicker timeZone option is set to 'Africa/Cairo'.
+ * This ensures that when Egypt switches between summer time (UTC+3) and
+ * winter time (UTC+2), the picker correctly reflects the local time
+ * instead of a fixed browser or UTC offset.
+ *
+ * Requires: moment-timezone.js  (loaded alongside moment.min.js)
+ * If moment-timezone is not yet included, add it before this file:
+ *   bower_components/moment-timezone/builds/moment-timezone-with-data.min.js
+ */
 $(function () {
 	$('#created_from').datetimepicker({
 		sideBySide: true,
-		viewDate : false,
-		format: 'Y-MM-DD H:m:s',
+		viewDate: false,
+		format: 'YYYY-MM-DD HH:mm:ss',
+		timeZone: 'Africa/Cairo'
 	});
 	$('#created_to').datetimepicker({
 		sideBySide: true,
-		viewDate : false,
-		format: 'Y-MM-DD H:m:s',
+		viewDate: false,
+		format: 'YYYY-MM-DD HH:mm:ss',
+		timeZone: 'Africa/Cairo'
 	});
 	$('.form_datetime').datetimepicker({
-			sideBySide: true,
-			viewDate : false,
-			format: 'Y-MM-DD H:m:s',
-			minDate:new Date()
+		sideBySide: true,
+		viewDate: false,
+		format: 'YYYY-MM-DD HH:mm:ss',
+		minDate: new Date(),
+		timeZone: 'Africa/Cairo'
 	});
 	$('.form-date-hidden').datetimepicker({
-			sideBySide: true,
-			viewDate : false,
-			format: 'Y-MM-DD H:m:s',
-			minDate:new Date()
-    });
+		sideBySide: true,
+		viewDate: false,
+		format: 'YYYY-MM-DD HH:mm:ss',
+		minDate: new Date(),
+		timeZone: 'Africa/Cairo'
+	});
 });
 
 
@@ -53,24 +69,4 @@ function validate() {
 		
 	}
 	return true;
-    /* var filename=document.getElementById('upload').value;
-	var filesize = document.getElementById('upload');
-	console.log(filesize.files[0].size);
-    var extension=filename.substr(filename.lastIndexOf('.')+1).toLowerCase();
-    //alert(extension);
-    if(extension=='jpg' || extension=='gif' || extension=='png' || extension=='txt' || extension=='pdf'  || extension=='docx') {
-		 if ( filesize > maxfilesize )
-		{
-			alert('File Size is more than 1 MB!');
-			return false;
-		}
-		else
-		{
-			return true;
-		}
-    } else 
-	{
-        alert('Not Allowed Extension!.Only allowed files is (gif,jpg,png,txt,pdf,docx)');
-		return false;
-    } */
 }

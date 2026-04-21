@@ -39,6 +39,20 @@
 
 /*
  *---------------------------------------------------------------
+ * TIMEZONE CONFIGURATION — DST-AWARE
+ *---------------------------------------------------------------
+ *
+ * Set the application timezone to a named timezone (Africa/Cairo)
+ * so that PHP automatically handles Daylight Saving Time (DST)
+ * transitions between summer time (UTC+3) and winter time (UTC+2).
+ *
+ * IMPORTANT: Never use fixed offsets like 'UTC+2' here, as those
+ * do not adjust for DST. Always use a named geographic timezone.
+ */
+	date_default_timezone_set('Africa/Cairo');
+
+/*
+ *---------------------------------------------------------------
  * APPLICATION ENVIRONMENT
  *---------------------------------------------------------------
  *

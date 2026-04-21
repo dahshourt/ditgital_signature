@@ -1,7 +1,19 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Code here is run before ALL controllers
+ * Code here is run before ALL controllers.
+ *
+ * DST NOTE:
+ * The application timezone is set globally in index.php via:
+ *   date_default_timezone_set('Africa/Cairo')
+ *
+ * This ensures all PHP time functions (time(), date(), strtotime(), etc.)
+ * automatically handle Egypt's Daylight Saving Time (DST) transitions:
+ *   - Summer time: UTC+3  (DST active)
+ *   - Winter time: UTC+2  (DST inactive)
+ *
+ * Helper: use dst_aware_timestamp() instead of time() whenever you need
+ * a Unix timestamp that is correctly bounded to the Cairo timezone.
  */
 class MY_Controller extends MX_Controller
 {
@@ -13,6 +25,12 @@ class MY_Controller extends MX_Controller
 	public $group_id;
 	public $group_permissions;
 	public $menu_val;
+
+	/**
+	 * Application timezone constant.
+	 * Use this throughout the app instead of hardcoding 'Africa/Cairo'.
+	 */
+	const APP_TIMEZONE = 'Africa/Cairo';
 	
 	public function __construct()
 	{
@@ -93,5 +111,47 @@ class MY_Controller extends MX_Controller
 	function ci()
 	{
 		return get_instance();
+	}
+
+	/**
+	 * dst_aware_timestamp()
+	 *
+	 * Returns the current Unix timestamp anchored to the Africa/Cairo timezone.
+	 * Use this instead of bare time() when you need to ensure the timestamp
+	 * correctly reflects DST transitions (summer UTC+3 / winter UTC+2).
+	 *
+	 * Unix timestamps are always UTC-based, so time() and this function return
+	 * the same integer value — the difference is that this documents intent and
+	 * guarantees the global TZ is correct before any date formatting happens.
+	 *
+	 * @return int  Current Unix timestamp (UTC-based, TZ-verified)
+	 */
+	protected function dst_aware_timestamp()
+	{
+		// Confirm the TZ is set correctly (defensive guard).
+		if (date_default_timezone_get() !== self::APP_TIMEZONE) {
+			date_default_timezone_set(self::APP_TIMEZONE);
+		}
+		return (new DateTime('now', new DateTimeZone(self::APP_TIMEZONE)))->getTimestamp();
+	}
+
+	/**
+	 * dst_aware_strtotime()
+	 *
+	 * DST-safe replacement for strtotime().
+	 * Parses a date string using the Africa/Cairo named timezone so that
+	 * DST offsets are applied correctly instead of a fixed UTC offset.
+	 *
+	 * @param  string  $date_string  Human-readable date/datetime string
+	 * @return int|false             Unix timestamp or FALSE on failure
+	 */
+	protected function dst_aware_strtotime($date_string)
+	{
+		try {
+			$dt = new DateTime($date_string, new DateTimeZone(self::APP_TIMEZONE));
+			return $dt->getTimestamp();
+		} catch (Exception $e) {
+			return FALSE;
+		}
 	}
 }

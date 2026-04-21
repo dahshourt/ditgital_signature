@@ -477,8 +477,10 @@ $config['compress_output'] = FALSE;
 | reference, or convert it to the configured one timezone. See the 'date
 | helper' page of the user guide for information regarding date handling.
 |
+| Set to 'Africa/Cairo' to ensure DST-aware time handling for Egypt.
+| This named timezone automatically adjusts for summer/winter time.
 */
-$config['time_reference'] = 'local';
+$config['time_reference'] = 'Africa/Cairo';
 
 /*
 |--------------------------------------------------------------------------
