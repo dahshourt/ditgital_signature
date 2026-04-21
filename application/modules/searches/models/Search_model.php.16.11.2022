@@ -1,0 +1,80 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+/**
+ * Dashboard model
+ *
+ * @author		Ticketing 
+ * @author		OSS Dev Team
+ * @package		TTS-TE\application\Modules\Searches\Models
+ *
+ */
+class Search_model extends MY_Model
+{
+	/** 
+	 * 
+	 * @param 
+	 * @return 
+	 */
+	public function get_ticket_quick_search($data_search)
+	{
+		if ( ! empty ($data_search))
+		{
+			/*$type_id = isset($this->session->groups['type_id']);
+
+			$user_id = $this->session->user_id;
+			$group_id = $this->session->groups['id'];
+			//die($group_id);
+			if ($type_id == '3')
+			{
+				$this->db->group_start();
+				$this->db->where('t.manager_id', $user_id);
+				$this->db->or_where('t.creator_group_id', $group_id);
+				$this->db->group_end();
+			}
+			elseif($type_id == '2')
+			{
+				$this->db->group_start();
+                if(isset($data_search['t.group_id']) && $data_search['t.group_id'] != $group_id)
+                {
+                    $this->db->where('t.group_id', $data_search['t.group_id']);
+                    $this->db->or_where('t.creator_group_id', $data_search['t.group_id']);
+                }
+                else {
+                    $this->db->where('t.group_id', $group_id);
+                    $this->db->or_where('t.creator_group_id', $group_id);
+                }
+				$this->db->group_end();
+			}*/
+			$result = $this->db
+						->select("t.id,  to_char(TO_DATE('19700101','yyyymmdd')  + (\"t\".\"created_at\"/24/60/60),'DD-MM-YYYY HH24:MI:SS') as created_at,
+
+                                                    
+                                                    ts.name status_name, 
+								  tc.name categrory,sub.name sub_categorey, cus.mobile mobile_num,cus.second_mobile_no second_num,serv.name service_type,dev.name device_type,t.service_identifier,t.application_id ,tlt.text  complaint_details")
+						->from('tickets t')
+						->where($data_search)
+						->join('tickets_statuses ts', 'ts.id = t.status_id', 'left')
+						->join('customers_info ci', 'ci.id = t.customers_info_id', 'left')
+						->join('area_codes ac', 'ac.id = ci.area_code_id', 'left')
+						->join('tickets_categories tc', 'tc.id = t.category_id', 'left')
+						->join('tickets_categories sub', 'sub.id = t.sub_category_id', 'left')
+						->join('customers_info cus', 'cus.id = t.customers_info_id', 'left')
+
+						->join('service_types serv', 'serv.id = t.service_type', 'left')
+						->join('device_types dev', 'dev.id = t.device_type', 'left')
+                                ->join('tickets_logs_texts tlt', 'tlt.ticket_id = t.id AND tlt.log_type_id = 8', 'left')
+
+
+						//->join('users_groups ug', 'ug.user_id = t.created_by')
+						//->join('users u', 'u.id = t.created_by')
+						//->join('groups g', 'g.id = ug.group_id')
+						//->where('ts.name <>','Closed')								
+						->get();
+
+		  	if ($result)
+			{
+		  		return $result;
+			}
+			return FALSE;
+		}			
+	}
+}

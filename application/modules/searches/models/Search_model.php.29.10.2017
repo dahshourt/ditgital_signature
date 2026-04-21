@@ -1,0 +1,59 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+/**
+ * Dashboard model
+ *
+ * @author		Ticketing 
+ * @author		OSS Dev Team
+ * @package		TTS-TE\application\Modules\Searches\Models
+ *
+ */
+class Search_model extends MY_Model
+{
+	/** 
+	 * 
+	 * @param 
+	 * @return 
+	 */
+	public function get_ticket_quick_search($data_search)
+	{
+		if ( ! empty ($data_search))
+		{
+			$type_id = $this->session->groups['type_id'];
+			$user_id = $this->session->user_id;
+			$group_id = $this->session->groups['id'];
+			if ($type_id == '3')
+			{
+				$this->db->group_start();
+				$this->db->where('t.manager_id', $user_id);
+				$this->db->or_where('t.creator_group_id', $group_id);
+				$this->db->group_end();
+			}
+			elseif($type_id == '2')
+			{
+				$this->db->group_start();
+				$this->db->where('t.group_id', $group_id);
+				$this->db->or_where('t.creator_group_id', $group_id);
+				$this->db->group_end();
+			}
+			$result = $this->db
+						->select("t.id, t.created_at, ts.name status_name, u.username created_user, g.name created_group,
+								t.product_phone, ac.name, tc.name categrory")
+						->from('tickets t')
+						->where($data_search)
+						->join('tickets_statuses ts', 'ts.id = t.status_id', 'left')
+						->join('customers_info ci', 'ci.id = t.customers_info_id', 'left')
+						->join('area_codes ac', 'ac.id = ci.area_code_id', 'left')
+						->join('tickets_categories tc', 'tc.id = t.category_id', 'left')
+						->join('users_groups ug', 'ug.user_id = t.created_by')
+						->join('users u', 'u.id = t.created_by')
+						->join('groups g', 'g.id = ug.group_id')								
+						->get();
+	
+		  	if ($result)
+			{
+		  		return $result;
+			}
+			return FALSE;
+		}			
+	}
+}

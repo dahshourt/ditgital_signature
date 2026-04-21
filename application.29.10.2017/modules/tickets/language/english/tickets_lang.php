@@ -1,0 +1,37 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed');
+
+$lang['tickets:id']                       = 'Ticket ID';
+$lang['tickets:status']                   = 'Ticket Status';
+$lang['tickets:group']                    = 'Group';
+$lang['tickets:creator']                  = 'Ticket Creator';
+$lang['tickets:created_on']               = 'Created- on';
+$lang['tickets:customer_name']            = 'Customer Name';
+$lang['tickets:stb_mac_address']          = 'STB Mac Address';
+$lang['tickets:compound_name']            = 'Compound Name';
+$lang['tickets:villa_no']                 = 'Villa Number';
+$lang['tickets:show_log']                 = 'Show Ticket Log';
+$lang['tickets:edit']                     = 'Edit';
+$lang['tickets:view']                     = 'View';
+$lang['tickets:manage']                   = 'Manage';
+$lang['tickets:document_name']            = 'Document name';
+
+$lang['tickets:area_code']                = 'Area Code';
+$lang['tickets:product_phone']            = 'ADSL No';
+$lang['tickets:comment']                  = 'Comment';
+$lang['tickets:created_group']            = 'Created Group';
+$lang['tickets:commented_group']          = 'Commented Group';
+$lang['tickets:commented_user']           = 'Commented User';
+$lang['tickets:uploaded_user']            = 'Uploaded user';
+$lang['tickets:comment_date']             = 'Comment date';
+$lang['tickets:complaint_details']        = 'Complaint Details';
+$lang['tickets:category']        		  = 'Category';
+
+
+$lang['tickets:introduction']             = 'You can create new ticket and assigned it to another groups';
+
+$lang['tickets:message_ticket_saved_success'] = 'The permissions for this group have been saved.';
+$lang['tickets:message_group_saved_error']   = 'Sorry, the permissions for this group could not be saved.';
+$lang['tickets:message_no_group_id_provided'] = 'The group id provided was not valid.';
+$lang['tickets:admin_has_all_permissions'] = 'The Admin group has access to everything';
+$lang['tickets:checkbox_tooltip_action_to_all'] = 'Check to give access permission to all modules for this group.';
+$lang['tickets:checkbox_tooltip_give_access_to_module'] = 'Check to give access permission to the &quot;%s&quot; module for this group.';

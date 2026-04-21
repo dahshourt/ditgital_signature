@@ -1,0 +1,26 @@
+	.demo-container {
+		position: relative;
+		height: 400px;
+	}
+
+	#placeholder {
+		width: 550px;
+	}
+
+	
+
+	#description {
+		margin: 15px 10px 20px 10px;
+	}
+
+	#code {
+		display: block;
+		width: 870px;
+		padding: 15px;
+		margin: 10px auto;
+		border: 1px dashed #999;
+		background-color: #f8f8f8;
+		font-size: 16px;
+		line-height: 20px;
+		color: #666;
+	}
