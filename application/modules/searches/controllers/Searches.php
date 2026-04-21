@@ -1,213 +1,263 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed');
 /**
- * Searches controller for 
+ * Searches Controller
  *
- * @author		OSS Team TE Data
- * @author		OSS Dev Team
- * @package	 application\Modules\Searches\Controllers
+ * @author      OSS Team TE Data
+ * @author      OSS Dev Team
+ * @package     application\Modules\Searches\Controllers
  *
+ * DST NOTE:
+ * When the search form submits a created_at date string, the controller
+ * must convert it to a Unix timestamp for the WHERE clause.
+ *
+ * Previously bare strtotime() was used:
+ *
+ *     $data_access_field_name = strtotime($this->input->post('created_at_from'));
+ *
+ * strtotime() parses the string using whatever the active PHP default timezone
+ * is. If that timezone is a fixed offset (e.g. UTC+2 hard-coded in php.ini or
+ * the OS) the conversion is wrong during summer time and requires a manual fix.
+ *
+ * FIX:
+ * We now use DateTime with an explicit DateTimeZone('Africa/Cairo'). This
+ * named timezone knows Egypt's DST rules and always returns the correct UTC
+ * timestamp regardless of whether it is summer or winter.
  */
 class Searches extends MY_Controller
 {
+    /** Constructor */
+    public function __construct()
+    {
+        parent::__construct();
+        $this->load->model('Search_model');
+        $this->load->model('tickets/ticket_model');
+        $this->load->model('tickets/status_model');
+        $this->load->model('tickets/category_model');
+        $this->load->model('tickets/group_model');
+        $this->load->model('custom_fields/custom_field_model');
+        $this->load->library('form_validation');
+        $this->lang->load('tickets/tickets');
+        $this->load->module('tickets/categories');
+    }
 
-	/**
-	 * Constructor method
-	 */
-	public function __construct()
-	{
-		parent::__construct();
-		$this->load->model('Search_model');
-		$this->load->model('tickets/ticket_model');
-		$this->load->model('tickets/status_model');
-		$this->load->model('tickets/category_model');
-		$this->load->model('tickets/group_model');
-		$this->load->model('custom_fields/custom_field_model');
-		$this->load->library('form_validation');
-		$this->lang->load('tickets/tickets');
-		$this->load->module('tickets/categories');
-	}
+    /** Show Search criteria */
+    public function index()
+    {
+        $user_id      = $this->user_id;
+        $my_group_id  = $this->group_id['id'];
+        $form_type    = '2';
 
-	/**
-	 * Show Search criteria
-	 */
-	public function index()
-	{
-		$user_id = $this->user_id;
-		$my_group_id = $this->group_id['id'];
-		$form_type = '2';
-		$this->load->module('custom_fields/custom_fields');
-		$input = array('form_type' => '2', 'group_id' => $my_group_id);	
-		$get_access_fields = $this->custom_fields->get_access_fields($input);
+        $this->load->module('custom_fields/custom_fields');
+        $input             = array('form_type' => '2', 'group_id' => $my_group_id);
+        $get_access_fields = $this->custom_fields->get_access_fields($input);
 
-		foreach ($get_access_fields as $values)
+        foreach ($get_access_fields as $values)
         {
-        	if (isset($values['validation_type_id']))
+            if (isset($values['validation_type_id']))
             {
-            	$this->form_validation->set_rules($values['name'], $values['label'], $values['validation_type_name']);
-				$validation = TRUE;
+                $this->form_validation->set_rules(
+                    $values['name'],
+                    $values['label'],
+                    $values['validation_type_name']
+                );
+                $validation = TRUE;
             }
         }
-		if ($this->form_validation->run() OR ($this->input->post() &&isset( $validation) != TRUE))
-		{
-			$data_search = array();
-			foreach ($get_access_fields as $data_access_field)
-			{
-				if ($this->input->post($data_access_field['name']))
-				{
-					if ($data_access_field['related_table'] == '1')
-					{
-						$related_table = 't.';
-					}
-					else if($data_access_field['related_table'] == '2')
-					{
-						$related_table = 'ci.';
-					}
-					else if($data_access_field['related_table'] == '5')
-					{
-						$related_table = 'u.'; 
-					}
-					$data_access_field_name = $this->input->post($data_access_field['name']);
-					if(strstr($data_access_field['name'], 'created_at'))
-					{
-						$data_access_field_name = strtotime($this->input->post($data_access_field['name']));
-					}
-					$data_search[$related_table.$data_access_field['name']] = $data_access_field_name;
-				}
-			}
-		
-			// Select data from tables
-			$ticket_by_search_res = $this->Search_model->get_ticket_quick_search($data_search);
-			$data['search_tickets'] = $ticket_by_search_res->result();
-			//var_dump($this->db->last_query());
-			//exit();
-			$this->session->set_userdata('search_tickets_export', $this->db->last_query());
-		}
 
-		$cmp = function($a, $b){ return $a['sort'] - $b['sort'];};
-		usort($get_access_fields, $cmp);
-		$data['get_access_fields'] = $get_access_fields;
-		$res_groups_access   	   = $this->group_model->get_access_by_group($my_group_id, array('view_ticket', 'edit_ticket'));
-		
-		$groups_access = array();
-		foreach ($res_groups_access as $value) {
-			$groups_access[] = $value->id;
-		}
+        if ($this->form_validation->run() OR ($this->input->post() && isset($validation) != TRUE))
+        {
+            // Timezone object used for all DST-safe date conversions below.
+            $cairo_tz = new DateTimeZone('Africa/Cairo');
 
-		// Define all ajax URLs...
-		$ajax_url = array();		
-		foreach ($get_access_fields as $value_access_field)
-		{
-			if ($value_access_field['type'] == 'dropdown')
-			{
-				switch ($value_access_field['name']) {
-					case 'created_by':
+            $data_search = array();
+            foreach ($get_access_fields as $data_access_field)
+            {
+                if ($this->input->post($data_access_field['name']))
+                {
+                    if ($data_access_field['related_table'] == '1')
+                    {
+                        $related_table = 't.';
+                    }
+                    elseif ($data_access_field['related_table'] == '2')
+                    {
+                        $related_table = 'ci.';
+                    }
+                    elseif ($data_access_field['related_table'] == '5')
+                    {
+                        $related_table = 'u.';
+                    }
+
+                    $raw_value = $this->input->post($data_access_field['name']);
+
+                    if (strstr($data_access_field['name'], 'created_at'))
+                    {
+                        /*
+                         * DST-SAFE DATE-TO-TIMESTAMP CONVERSION
+                         * ---------------------------------------
+                         * Use DateTime with the named 'Africa/Cairo' timezone
+                         * so that summer (UTC+3) and winter (UTC+2) are both
+                         * handled correctly without any manual code changes.
+                         *
+                         * getTimestamp() always returns the UTC Unix integer
+                         * that the database WHERE clause expects.
+                         */
+                        try {
+                            $dt          = new DateTime($raw_value, $cairo_tz);
+                            $raw_value   = $dt->getTimestamp();
+                        } catch (Exception $e) {
+                            // If parsing fails fall back to 0 (invalid date).
+                            $raw_value = 0;
+                        }
+                    }
+
+                    $data_search[$related_table . $data_access_field['name']] = $raw_value;
+                }
+            }
+
+            // Execute search
+            $ticket_by_search_res = $this->Search_model->get_ticket_quick_search($data_search);
+            $data['search_tickets'] = $ticket_by_search_res->result();
+            $this->session->set_userdata('search_tickets_export', $this->db->last_query());
+        }
+
+        $cmp = function ($a, $b) { return $a['sort'] - $b['sort']; };
+        usort($get_access_fields, $cmp);
+        $data['get_access_fields'] = $get_access_fields;
+
+        $res_groups_access = $this->group_model->get_access_by_group(
+            $my_group_id,
+            array('view_ticket', 'edit_ticket')
+        );
+
+        $groups_access = array();
+        foreach ($res_groups_access as $value)
+        {
+            $groups_access[] = $value->id;
+        }
+
+        // Build dropdown data for each field
+        $ajax_url = array();
+        foreach ($get_access_fields as $value_access_field)
+        {
+            if ($value_access_field['type'] == 'dropdown')
+            {
+                switch ($value_access_field['name'])
+                {
+                    case 'created_by':
                         $data[$value_access_field['name']] = $this->ticket_model->get_user();
                         break;
-					case 'group_id':
+                    case 'group_id':
                         $data[$value_access_field['name']] = $res_groups_access;
                         break;
-					case 'creator_group_id':
-						$data[$value_access_field['name']] = $res_groups_access;
-						break;
-						case 'group_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('groups');
-						break;
-					case 'status_id':
+                    case 'creator_group_id':
+                        $data[$value_access_field['name']] = $res_groups_access;
+                        break;
+                    case 'status_id':
                         $get_group_status =
-                            'current_group='.$my_group_id.' and transfer_group='.$my_group_id.' and previous_group='.$my_group_id.' and current_status IS NULL';
-                        $group_status_ids = $this->ticket_model->get_transfer_status($get_group_status);
-                        $transfer_status = json_decode($group_status_ids,true);
-                        $transfer_status = $this->ticket_model->getStatusById($transfer_status);
-						//$data[$value_access_field['name']] = $this->status_model->get_by_groups($groups_access);
-						$data[$value_access_field['name']] = $transfer_status;
-						break;
-					case 'category_id':
-						$data[$value_access_field['name']] = $this->category_model->get_by_groups($groups_access);
-						break;
-					case 'sub_category_id':
-						$ajax_url['sub_category_id'] = site_url('tickets/categories/ajax_get_sub_categories');;
-						break;
-					case 'location_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all_parent('locations');
-						break;
+                            'current_group=' . $my_group_id
+                            . ' and transfer_group=' . $my_group_id
+                            . ' and previous_group=' . $my_group_id
+                            . ' and current_status IS NULL';
+                        $group_status_ids  = $this->ticket_model->get_transfer_status($get_group_status);
+                        $transfer_status   = json_decode($group_status_ids, true);
+                        $transfer_status   = $this->ticket_model->getStatusById($transfer_status);
+                        $data[$value_access_field['name']] = $transfer_status;
+                        break;
+                    case 'category_id':
+                        $data[$value_access_field['name']] = $this->category_model->get_by_groups($groups_access);
+                        break;
+                    case 'sub_category_id':
+                        $ajax_url['sub_category_id'] = site_url('tickets/categories/ajax_get_sub_categories');
+                        break;
+                    case 'location_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all_parent('locations');
+                        break;
                     case 'sub_location_id':
                         $ajax_url['sub_location_id'] = site_url('tickets/ajax_get_sub_location_id');
                         break;
-					case 'area_code_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('area_codes');
-						break;
-					case 'reseller_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('resellers');
-						break;
-					case 'complain_channel_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('complain_channels');
-						break;
-					case 'package_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('packages');
-						break;
-					case 'speed_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('speeds');
-						break;
-					case 'cpe_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('cpes');
-						break;
-					case 'cpe_request_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('cpe_requests');
-						break;
-					case 'exchange_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('exchanges');
-						break;
-					case 'option_pack_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('option_packs');
-						break;
-					case 'discount_reason_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('discount_reasons');
-						break;
-					case 'closed_by_user'://closed_by_user
-						$data[$value_access_field['name']] = $this->ticket_model->get_users_by_group($this->session->groups['id']);
-						break;
-					case 'customer_type_id':
-						$data[$value_access_field['name']] = $this->ticket_model->get_all('customer_types');
-						break;	 
-					default:
-						break;
-				}
-			}
-		}
+                    case 'area_code_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('area_codes');
+                        break;
+                    case 'reseller_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('resellers');
+                        break;
+                    case 'complain_channel_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('complain_channels');
+                        break;
+                    case 'package_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('packages');
+                        break;
+                    case 'speed_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('speeds');
+                        break;
+                    case 'cpe_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('cpes');
+                        break;
+                    case 'cpe_request_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('cpe_requests');
+                        break;
+                    case 'exchange_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('exchanges');
+                        break;
+                    case 'option_pack_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('option_packs');
+                        break;
+                    case 'discount_reason_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('discount_reasons');
+                        break;
+                    case 'closed_by_user':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_users_by_group(
+                            $this->session->groups['id']
+                        );
+                        break;
+                    case 'customer_type_id':
+                        $data[$value_access_field['name']] = $this->ticket_model->get_all('customer_types');
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
 
-		foreach ($this->session->group_permissions as $key => $value)
-		{
-			
+        foreach ($this->session->group_permissions as $key => $value)
+        {
+            if (isset($value['group_access']) == $this->input->post('group_id') && $value['rule_slug'] == 'view_ticket')
+            {
+                $data['view_ticket'] = TRUE;
+            }
+            elseif (isset($value['group_access']) == $this->input->post('group_id') && $value['rule_slug'] == 'edit_ticket')
+            {
+                $data['edit_ticket'] = TRUE;
+            }
+        }
 
-			if (isset($value['group_access']) == $this->input->post('group_id') && $value['rule_slug'] == 'view_ticket')
-			{
-				$data['view_ticket'] = TRUE;
-			}
-			else if (isset($value['group_access']) == $this->input->post('group_id') && $value['rule_slug'] == 'edit_ticket')
-			{
-				$data['edit_ticket'] = TRUE;
-			}
-		}
+        $data['main_content'] = 'searches/index';
+        $data['title']        = 'Search Tickets - Trouble ticketing System';
+        $data['js'] = array(
+            'bower_components/moment/min/moment.min.js',
+            'bower_components/eonasdan-bootstrap-datetimepicker/build/js/bootstrap-datetimepicker.min.js',
+            'bower_components/datatables/media/js/jquery.dataTables.min.js',
+            'bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js',
+            'reports/js/calender_from_to.js',
+        );
+        if ( ! empty($ajax_url))
+        {
+            $data['ajax_url'] = $ajax_url;
+            array_push($data['js'], 'searches/js/searches.js');
+        }
+        $data['css'] = array(
+            'bower_components/eonasdan-bootstrap-datetimepicker/build/css/bootstrap-datetimepicker.min.css',
+            'bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.css',
+            'bower_components/datatables-responsive/css/dataTables.responsive.css',
+        );
+        $this->load->view('layouts/default', $data);
+    }
 
-		$data['main_content']   = 'searches/index';
-	 	$data['title']          = 'Search Tickets - Trouble ticketing System';
-	 	$data['js'] = array('bower_components/moment/min/moment.min.js', 'bower_components/eonasdan-bootstrap-datetimepicker/build/js/bootstrap-datetimepicker.min.js',
-			'bower_components/datatables/media/js/jquery.dataTables.min.js', 'bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js', 'reports/js/calender_from_to.js');
-		if ( ! empty($ajax_url))
-		{
-			$data['ajax_url'] =  $ajax_url;
-			array_push($data['js'], 'searches/js/searches.js');
-		}
-		$data['css'] = array('bower_components/eonasdan-bootstrap-datetimepicker/build/css/bootstrap-datetimepicker.min.css',
-			'bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.css', 'bower_components/datatables-responsive/css/dataTables.responsive.css');
-	 	$this->load->view('layouts/default',$data);
-	}
-
-	public function ajax_get_sub_location_id()
+    public function ajax_get_sub_location_id()
     {
         $location_id = $this->input->post('location_id');
         $this->load->model('ticket_model');
-        $sub_location_id  = array();
+        $sub_location_id = array();
         $sub_location_id = $this->ticket_model->ajax_get_sub_location_id($location_id);
         if ($sub_location_id != 0)
         {
